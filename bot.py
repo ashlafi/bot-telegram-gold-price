@@ -1,15 +1,14 @@
-import requests
-import time
 import os
+import requests
 
-TOKEN = os.environ.get("7484847090:AAHBjVKGCSOfsVwvFcXBFRcwbXZMhVMIYfk")
-CHAT_ID = os.environ.get("https://t.me/dollar_gold_price_now")
-PRICE_API_URL = os.environ.get("BNWws2fmDNyP2hCajebeBxVjnnsqec7E")
+TOKEN = os.environ.get("BOT_TOKEN")
+CHAT_ID = os.environ.get("CHAT_ID")
+PRICE_API_URL = os.environ.get("PRICE_API_URL")
 
 def get_prices():
-    r = requests.get(PRICE_API_URL)
-    data = r.json()
-    gold = data['gold']  # تغییر طبق API
+    resp = requests.get(PRICE_API_URL)
+    data = resp.json()
+    gold = data['gold']  # بر اساس خروجی API تغییر بده
     usd = data['usd']
     return gold, usd
 
@@ -18,11 +17,5 @@ def send_message(text):
     payload = {"chat_id": CHAT_ID, "text": text}
     requests.post(url, data=payload)
 
-while True:
-    try:
-        g, u = get_prices()
-        msg = f"💰 قیمت:\n- طلا: {g}\n- دلار: {u}"
-        send_message(msg)
-    except Exception as e:
-        print("خطا:", e)
-    time.sleep(300)
+g,u = get_prices()
+send_message(f"💰 قیمت:\nطلا: {g}\nدلار: {u}")
