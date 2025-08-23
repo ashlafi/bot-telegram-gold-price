@@ -13,7 +13,6 @@ def get_prices():
     resp = requests.get(PRICE_API_URL, headers=headers, timeout=10)
     data = resp.json()
 
-    # خروجی واقعی API شما آرایه هست، نه دیکشنری
     gold_list = data['gold']
     currency_list = data['currency']
 
@@ -24,8 +23,22 @@ def get_prices():
 
     return gold_price, usd_price
 
+def format_number(num):
+    """تبدیل عدد به فرمت سه رقم سه رقم با کاما"""
+    try:
+        return "{:,}".format(int(num))
+    except:
+        return str(num)
+
 gold_price, usd_price = get_prices()
 
-msg = f"قیمت طلا 18 عیار 💰: {gold_price}\n\nقیمت دلار بازار آزاد 💵: {usd_price}\n\n@dollar_gold_price_now"
+msg = (
+    f"قیمت طلا 18 عیار 💰: {format_number(gold_price)} تومان\n\n"
+    f"قیمت دلار بازار آزاد 💵: {format_number(usd_price)} تومان\n\n"
+    f"@dollar_gold_price_now"
+)
 
-requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={msg}")
+requests.get(
+    f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+    params={"chat_id": CHAT_ID, "text": msg}
+)
