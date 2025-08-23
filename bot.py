@@ -26,6 +26,6 @@ def get_prices():
 
 gold_price, usd_price = get_prices()
 
-msg = f"قیمت طلا 18 عیار 💰: {gold_price}\n\nقیمت دلار بازار آزاد 💵: {usd_price}\n\n@hdollar_gold_price_now"
+msg = f"قیمت طلا 18 عیار 💰: {gold_price}\n\nقیمت دلار بازار آزاد 💵: {usd_price}\n\n@dollar_gold_price_now"
 
 requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={msg}")
