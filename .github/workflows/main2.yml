@@ -2,8 +2,8 @@ name: Telegram Gold Bot
 
 on:
   schedule:
-    - cron: "*/30 * * * *"  # هر ۳۰ دقیقه یکبار
-  workflow_dispatch:       # امکان اجرای دستی
+    - cron: "*/30 * * * *"   # اجرای هر ۳۰ دقیقه
+  workflow_dispatch:         # امکان اجرای دستی
 
 jobs:
   run-bot:
@@ -19,7 +19,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests jdatetime
+          python -m pip install --upgrade pip
+          pip install requests pytz
 
       - name: Run bot
         env:
