@@ -6,78 +6,45 @@ import pytz
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 PRICE_API_URL = os.getenv("PRICE_API_URL")
+HOLIDAY_API = "https://holidayapi.ir/jalali"
 
-headers = {
-    "User-Agent": "Mozilla/5.0"
-}
+headers = {"User-Agent": "Mozilla/5.0"}
 
 def format_number(num):
-    """سه رقم سه رقم جدا کردن اعداد با جداکننده انگلیسی"""
+    """فرمت اعداد با جداکننده انگلیسی"""
     try:
         return "{:,}".format(int(num))
     except:
         return str(num)
 
 def get_prices():
-    resp = requests.get(PRICE_API_URL, headers=headers, timeout=10)
-    data = resp.json()
+    resp = requests.get(PRICE_API_URL, headers=headers, timeout=15)
+    return resp.json()
 
-    gold_list = data['gold']
-    currency_list = data['currency']
-
-    gold_18 = next((item for item in gold_list if item['symbol'] == 'IR_GOLD_18K'), None)
-    gold_24 = next((item for item in gold_list if item['symbol'] == 'IR_GOLD_24K'), None)
-    coin_1g = next((item for item in gold_list if item['symbol'] == 'IR_COIN_1G'), None)
-    coin_quarter = next((item for item in gold_list if item['symbol'] == 'IR_COIN_QUARTER'), None)
-    coin_half = next((item for item in gold_list if item['symbol'] == 'IR_COIN_HALF'), None)
-    coin_emami = next((item for item in gold_list if item['symbol'] == 'IR_COIN_EMAMI'), None)
-
-    usd = next((item for item in currency_list if item['symbol'] == 'USD'), None)
-    eur = next((item for item in currency_list if item['symbol'] == 'EUR'), None)
-
-    return gold_18, gold_24, coin_1g, coin_quarter, coin_half, coin_emami, usd, eur
-
-def is_holiday():
-    """چک کردن تعطیل بودن روز"""
-    tz = pytz.timezone("Asia/Tehran")
-    now = datetime.now(tz)
-    y, m, d = now.year, now.month, now.day
-
+def get_holiday_status(year, month, day):
+    url = f"{HOLIDAY_API}/{year}/{month}/{day}"
     try:
-        resp = requests.get(f"https://holidayapi.ir/jalali/{y}/{m}/{d}", timeout=10)
-        if resp.status_code == 200:
-            data = resp.json()
-            return data.get("is_holiday", False)
+        resp = requests.get(url, headers=headers, timeout=10)
+        return resp.json().get("is_holiday", False)
     except:
         return False
 
-    return False
+def build_normal_message(data):
+    gold_list = data["gold"]
+    currency_list = data["currency"]
 
-def is_allowed_time():
-    """بررسی بازه مجاز ارسال پیام"""
-    tz = pytz.timezone("Asia/Tehran")
-    now = datetime.now(tz)
-    hour = now.hour
+    def find(symbol, source):
+        return next((item for item in source if item["symbol"] == symbol), None)
 
-    if is_holiday():
-        # روز تعطیل: فقط ۱۲ تا ۱۳ و ۱۷ تا ۱۸
-        return (12 <= hour < 13) or (17 <= hour < 18)
-    else:
-        # روز کاری: فقط ۱۰ صبح تا ۸ شب
-        return 10 <= hour < 20
+    gold_18 = find("IR_GOLD_18K", gold_list)
+    gold_24 = find("IR_GOLD_24K", gold_list)
+    coin_1g = find("IR_COIN_1G", gold_list)
+    coin_quarter = find("IR_COIN_QUARTER", gold_list)
+    coin_half = find("IR_COIN_HALF", gold_list)
+    coin_emami = find("IR_COIN_EMAMI", gold_list)
 
-def send_message(msg):
-    requests.get(
-        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        params={"chat_id": CHAT_ID, "text": msg}
-    )
-
-def main():
-    if not is_allowed_time():
-        print("⏰ خارج از ساعت مجاز، پیامی ارسال نشد.")
-        return
-
-    gold_18, gold_24, coin_1g, coin_quarter, coin_half, coin_emami, usd, eur = get_prices()
+    usd = find("USD", currency_list)
+    eur = find("EUR", currency_list)
 
     msg = (
         f"💰 طلا 18 عیار: {format_number(gold_18['price'])} {gold_18['unit']}\n"
@@ -86,12 +53,58 @@ def main():
         f"🪙 ربع سکه: {format_number(coin_quarter['price'])} {coin_quarter['unit']}\n"
         f"🪙 نیم سکه: {format_number(coin_half['price'])} {coin_half['unit']}\n"
         f"🪙 سکه امامی: {format_number(coin_emami['price'])} {coin_emami['unit']}\n\n"
-        f"💵 دلار آمریکا: {format_number(usd['price'])} {usd['unit']}\n"
+        f"💵 دلار: {format_number(usd['price'])} {usd['unit']}\n"
         f"💶 یورو: {format_number(eur['price'])} {eur['unit']}\n\n"
         f"@dollar_gold_price_now"
     )
+    return msg
 
-    send_message(msg)
+def build_full_message(data):
+    gold_list = data["gold"]
+    currency_list = data["currency"]
+
+    gold_msg = "🏅 قیمت طلا و سکه:\n"
+    for item in gold_list:
+        gold_msg += f"{item['name']}: {format_number(item['price'])} {item['unit']}\n"
+
+    currency_msg = "\n💱 قیمت ارزها:\n"
+    for item in currency_list:
+        currency_msg += f"{item['name']}: {format_number(item['price'])} {item['unit']}\n"
+
+    return gold_msg + currency_msg + "\n\n@dollar_gold_price_now"
+
+def send_message(text):
+    try:
+        requests.get(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            params={"chat_id": CHAT_ID, "text": text},
+            timeout=15
+        )
+    except Exception as e:
+        print("❌ Error sending message:", e)
 
 if __name__ == "__main__":
-    main()
+    tz = pytz.timezone("Asia/Tehran")
+    now = datetime.now(tz)
+
+    year, month, day = now.year, now.month, now.day
+    is_holiday = get_holiday_status(year, month, day)
+
+    data = get_prices()
+
+    if not is_holiday:
+        # روزهای عادی
+        if 10 <= now.hour < 20:
+            msg = build_normal_message(data)
+            send_message(msg)
+
+        # ارسال گزارش کامل یکبار در بازه 11 تا 11:30
+        if now.hour == 11 and now.minute < 30:
+            msg_full = build_full_message(data)
+            send_message("📊 گزارش کامل بازار امروز:\n\n" + msg_full)
+
+    else:
+        # روزهای تعطیل → فقط دو بازه
+        if 11 <= now.hour < 12 or 17 <= now.hour < 18:
+            msg = build_normal_message(data)
+            send_message(msg)
